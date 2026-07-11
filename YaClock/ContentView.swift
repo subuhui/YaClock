@@ -7,8 +7,12 @@ struct ContentView: View {
     
     @StateObject private var alarmKitService = AlarmKitService.shared
     
-    @State private var showingEditSheet = false
-    @State private var alarmToEdit: LocalAlarm?
+    struct AlarmSheetItem: Identifiable {
+        let id = UUID()
+        let alarm: LocalAlarm?
+    }
+    
+    @State private var activeSheetItem: AlarmSheetItem?
     
     var body: some View {
         NavigationStack {
@@ -81,8 +85,7 @@ struct ContentView: View {
                             }
                             .contentShape(Rectangle())
                             .onTapGesture {
-                                alarmToEdit = alarm
-                                showingEditSheet = true
+                                activeSheetItem = AlarmSheetItem(alarm: alarm)
                             }
                         }
                         .onDelete(perform: deleteAlarms)
@@ -151,15 +154,14 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: {
-                        alarmToEdit = nil
-                        showingEditSheet = true
+                        activeSheetItem = AlarmSheetItem(alarm: nil)
                     }) {
                         Label("添加闹钟", systemImage: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingEditSheet) {
-                AlarmEditSheet(alarmToEdit: alarmToEdit)
+            .sheet(item: $activeSheetItem) { item in
+                AlarmEditSheet(alarmToEdit: item.alarm)
             }
             .onAppear {
                 alarmKitService.checkAuthorization()
