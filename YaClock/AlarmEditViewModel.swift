@@ -33,7 +33,7 @@ final class AlarmEditViewModel {
         }
     }
     
-    func saveAlarm() {
+    func saveAlarm() async {
         let calendar = Calendar.current
         let hour = calendar.component(.hour, from: selectedTime)
         let minute = calendar.component(.minute, from: selectedTime)
@@ -62,8 +62,10 @@ final class AlarmEditViewModel {
         try? modelContext.save()
         
         if alarm.isEnabled {
-            Task {
-                try? await alarmService.scheduleAlarm(alarm)
+            do {
+                try await alarmService.scheduleAlarm(alarm)
+            } catch {
+                print("Failed to schedule alarm on save: \(error)")
             }
         }
     }

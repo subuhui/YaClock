@@ -67,8 +67,10 @@ struct AlarmEditSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        viewModel.saveAlarm()
-                        dismiss()
+                        Task {
+                            await viewModel.saveAlarm()
+                            dismiss()
+                        }
                     }
                 }
             }
