@@ -12,7 +12,7 @@ struct EmptyMetadata: AlarmMetadata {}
 
 /// A service to interact with iOS 26's AlarmKit framework, with fallback simulation for older iOS versions.
 @MainActor
-final class AlarmKitService: ObservableObject {
+final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
     static let shared = AlarmKitService()
     
     @Published var isAuthorized: Bool = false
@@ -20,14 +20,6 @@ final class AlarmKitService: ObservableObject {
     
     // In-memory simulation queue for older iOS versions (like iOS 18.2 simulator)
     private var simulatedAlarms: [SystemAlarmInfo] = []
-    
-    struct SystemAlarmInfo: Identifiable, Hashable {
-        let id: UUID
-        let title: String
-        let time: String
-        let repeatString: String
-        let isSimulated: Bool
-    }
     
     private init() {
         checkAuthorization()
