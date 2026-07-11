@@ -111,6 +111,7 @@ struct ContentView: View {
                     }
                     .sheet(item: $activeSheetItem) { item in
                         AlarmEditSheet(modelContext: modelContext, alarmToEdit: item.alarm)
+                            .id(item.id)
                     }
                     .onAppear {
                         vm.checkAuthorization()

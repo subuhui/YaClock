@@ -118,7 +118,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
         }
         
         // Fallback Simulation (iOS 18.2)
-        print("[Simulator Mode] Scheduling simulated AlarmKit alarm: \(alarm.label) at \(timeStr), repeats: \(repeatStr)")
+        print("[AlarmKitService] [Simulator Mode] Scheduling simulated alarm: \(alarm.label) at \(timeStr), repeats: \(repeatStr) (ID: \(alarm.id))")
         simulatedAlarms.removeAll { $0.id == alarm.id }
         simulatedAlarms.append(
             SystemAlarmInfo(
@@ -142,7 +142,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
         }
         
         // Fallback Simulation (iOS 18.2)
-        print("[Simulator Mode] Cancelling simulated AlarmKit alarm: \(id)")
+        print("[AlarmKitService] [Simulator Mode] Cancelling simulated alarm: \(id)")
         simulatedAlarms.removeAll { $0.id == id }
         refreshSimulatedAlarms()
     }
@@ -198,11 +198,13 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
                 isSimulated: false
             )
         }
+        print("[AlarmKitService] Real system alarms updated, count: \(self.systemAlarms.count)")
     }
     #endif
     
     private func refreshSimulatedAlarms() {
         self.systemAlarms = simulatedAlarms.sorted(by: { $0.time < $1.time })
+        print("[AlarmKitService] Simulated system alarms refreshed, count: \(self.systemAlarms.count), current alarms: \(self.systemAlarms.map { "\($0.time) \($0.title)" })")
     }
     
     // MARK: - Helpers

@@ -33,6 +33,7 @@ final class AlarmListViewModel {
             observableService.$systemAlarms
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] alarms in
+                    print("[AlarmListViewModel] Received systemAlarms from service: \(alarms.map { "\($0.time) \($0.title)" })")
                     self?.systemAlarms = alarms
                 }
                 .store(in: &cancellables)
