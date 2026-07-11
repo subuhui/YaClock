@@ -10,6 +10,12 @@ import AlarmKit
 struct EmptyMetadata: AlarmMetadata {}
 #endif
 
+#if targetEnvironment(simulator)
+private let isSimulator = true
+#else
+private let isSimulator = false
+#endif
+
 /// A service to interact with iOS 26's AlarmKit framework, with fallback simulation for older iOS versions.
 @MainActor
 final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
@@ -25,7 +31,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
         checkAuthorization()
         
         // Start listening to system alarm updates if available
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !isSimulator {
             #if canImport(AlarmKit)
             Task {
                 for await updatedAlarms in AlarmManager.shared.alarmUpdates {
@@ -40,7 +46,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
     }
     
     func checkAuthorization() {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !isSimulator {
             #if canImport(AlarmKit)
             let state = AlarmManager.shared.authorizationState
             self.isAuthorized = (state == .authorized)
@@ -54,7 +60,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
     }
     
     func requestAuthorization() async -> Bool {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !isSimulator {
             #if canImport(AlarmKit)
             do {
                 let state = try await AlarmManager.shared.requestAuthorization()
@@ -82,7 +88,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
         let repeatStr = formatRepeatDays(alarm.repeatDays)
         let timeStr = String(format: "%02d:%02d", alarm.hour, alarm.minute)
         
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !isSimulator {
             #if canImport(AlarmKit)
             // 1. Create alert presentation
             let alertPresentation = AlarmPresentation.Alert(
@@ -133,7 +139,7 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
     }
     
     func cancelAlarm(id: UUID) async throws {
-        if #available(iOS 26.0, *) {
+        if #available(iOS 26.0, *), !isSimulator {
             #if canImport(AlarmKit)
             try AlarmManager.shared.cancel(id: id)
             print("Successfully cancelled AlarmKit alarm with ID: \(id)")
