@@ -14,7 +14,8 @@ struct AlarmEditSheet: View {
     }
     
     var body: some View {
-        NavigationStack {
+        @Bindable var viewModel = viewModel
+        return NavigationStack {
             Form {
                 Section {
                     DatePicker("时间", selection: $viewModel.selectedTime, displayedComponents: .hourAndMinute)
