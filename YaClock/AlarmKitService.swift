@@ -1,3 +1,4 @@
+// MARK: - Data Layer · AlarmKit Service
 import Foundation
 import SwiftUI
 import Combine
@@ -84,52 +85,57 @@ final class AlarmKitService: AlarmServiceProtocol, ObservableObject {
         }
     }
     
-    func scheduleAlarm(_ alarm: LocalAlarm) async throws {
-        let repeatStr = formatRepeatDays(alarm.repeatDays)
-        let timeStr = String(format: "%02d:%02d", alarm.hour, alarm.minute)
-        
+    func scheduleAlarm(_ entity: AlarmEntity) async throws {
+        let repeatStr = formatRepeatDays(entity.repeatDays)
+        let timeStr = String(format: "%02d:%02d", entity.hour, entity.minute)
+
         if #available(iOS 26.0, *), !isSimulator {
             #if canImport(AlarmKit)
             // 1. Create alert presentation
             let alertPresentation = AlarmPresentation.Alert(
-                title: LocalizedStringResource(stringLiteral: alarm.label),
+                title: LocalizedStringResource(stringLiteral: entity.label),
                 stopButton: AlarmButton(text: "停止", textColor: .white, systemImageName: "xmark.circle.fill")
             )
-            
+
             // 2. Wrap in presentation attributes
             let attributes = AlarmAttributes<EmptyMetadata>(
                 presentation: AlarmPresentation(alert: alertPresentation),
                 tintColor: .blue
             )
-            
+
             // 3. Set up relative schedule
-            let time = Alarm.Schedule.Relative.Time(hour: alarm.hour, minute: alarm.minute)
-            let weekdays = mapToWeekdays(alarm.repeatDays)
-            let recurrence = weekdays.isEmpty ? Alarm.Schedule.Relative.Recurrence.never : Alarm.Schedule.Relative.Recurrence.weekly(weekdays)
+            let time = Alarm.Schedule.Relative.Time(hour: entity.hour, minute: entity.minute)
+            let weekdays = mapToWeekdays(entity.repeatDays)
+            let recurrence = weekdays.isEmpty
+                ? Alarm.Schedule.Relative.Recurrence.never
+                : Alarm.Schedule.Relative.Recurrence.weekly(weekdays)
             let schedule = Alarm.Schedule.relative(
                 Alarm.Schedule.Relative(time: time, repeats: recurrence)
             )
-            
-            // 4. Construct configuration and schedule
+
+            // 4. Construct configuration
             let configuration = AlarmManager.AlarmConfiguration<EmptyMetadata>(
                 countdownDuration: nil,
                 schedule: schedule,
                 attributes: attributes
             )
-            
-            try await AlarmManager.shared.schedule(id: alarm.id, configuration: configuration)
-            print("Successfully scheduled AlarmKit alarm with ID: \(alarm.id)")
+
+            // 5. cancel-then-schedule: schedule(id:) only creates new alarms;
+            //    calling it on an existing ID causes Code=0.
+            try? AlarmManager.shared.cancel(id: entity.id)
+            try await AlarmManager.shared.schedule(id: entity.id, configuration: configuration)
+            print("[AlarmKitService] Scheduled alarm \(entity.id)")
             return
             #endif
         }
-        
-        // Fallback Simulation (iOS 18.2)
-        print("[AlarmKitService] [Simulator Mode] Scheduling simulated alarm: \(alarm.label) at \(timeStr), repeats: \(repeatStr) (ID: \(alarm.id))")
-        simulatedAlarms.removeAll { $0.id == alarm.id }
+
+        // Fallback: Simulator / iOS < 26
+        print("[AlarmKitService] [Sim] Schedule \(entity.label) at \(timeStr) repeats:\(repeatStr) id:\(entity.id)")
+        simulatedAlarms.removeAll { $0.id == entity.id }
         simulatedAlarms.append(
             SystemAlarmInfo(
-                id: alarm.id,
-                title: alarm.label,
+                id: entity.id,
+                title: entity.label,
                 time: timeStr,
                 repeatString: repeatStr,
                 isSimulated: true

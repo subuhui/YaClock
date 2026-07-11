@@ -1,75 +1,48 @@
+// MARK: - Presentation Layer · AlarmList
 import Foundation
-import SwiftData
-import Observation
-import Combine
 
+/// 闹钟列表页的 ViewModel。
+/// 只持有 AlarmRepository（@Observable）并调用 UseCase，不直接接触 SwiftData/AlarmKit。
 @Observable
 @MainActor
 final class AlarmListViewModel {
-    private let modelContext: ModelContext
-    private let alarmService: AlarmServiceProtocol
-    
-    var isAuthorized: Bool = false
-    var systemAlarms: [SystemAlarmInfo] = []
-    
-    private var cancellables = Set<AnyCancellable>()
-    
-    init(modelContext: ModelContext, alarmService: AlarmServiceProtocol = AlarmKitService.shared) {
-        self.modelContext = modelContext
-        self.alarmService = alarmService
-        
-        self.isAuthorized = alarmService.isAuthorized
-        self.systemAlarms = alarmService.systemAlarms
-        
-        // Listen to changes in the service dynamically if it's an ObservableObject
-        if let observableService = alarmService as? AlarmKitService {
-            observableService.$isAuthorized
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] val in
-                    self?.isAuthorized = val
-                }
-                .store(in: &cancellables)
-                
-            observableService.$systemAlarms
-                .receive(on: DispatchQueue.main)
-                .sink { [weak self] alarms in
-                    print("[AlarmListViewModel] Received systemAlarms from service: \(alarms.map { "\($0.time) \($0.title)" })")
-                    self?.systemAlarms = alarms
-                }
-                .store(in: &cancellables)
-        }
+
+    // MARK: 对外状态（从 repository 派生，@Observable 自动追踪）
+    var systemAlarms: [SystemAlarmInfo] { repository.systemAlarms }
+    var isAuthorized: Bool { repository.isAuthorized }
+
+    // MARK: 私有依赖
+    private let repository: AlarmRepository
+    private let toggleUseCase: ToggleAlarmUseCase
+    private let deleteUseCase: DeleteAlarmUseCase
+
+    init(repository: AlarmRepository) {
+        self.repository = repository
+        self.toggleUseCase = ToggleAlarmUseCase(repository: repository)
+        self.deleteUseCase = DeleteAlarmUseCase(repository: repository)
     }
-    
-    func checkAuthorization() {
-        alarmService.checkAuthorization()
-    }
-    
-    func requestAuthorization() async {
-        _ = await alarmService.requestAuthorization()
-    }
-    
-    func toggleAlarm(_ alarm: LocalAlarm, isEnabled: Bool) {
-        alarm.isEnabled = isEnabled
-        try? modelContext.save()
-        
+
+    // MARK: - 意图
+
+    func toggleAlarm(_ entity: AlarmEntity, isEnabled: Bool) {
         Task {
-            if isEnabled {
-                try? await alarmService.scheduleAlarm(alarm)
-            } else {
-                try? await alarmService.cancelAlarm(id: alarm.id)
+            try? await toggleUseCase.execute(alarm: entity, isEnabled: isEnabled)
+        }
+    }
+
+    func deleteAlarms(_ entities: [AlarmEntity]) {
+        Task {
+            for entity in entities {
+                try? await deleteUseCase.execute(id: entity.id)
             }
         }
     }
-    
-    func deleteAlarms(at offsets: IndexSet, from alarmsList: [LocalAlarm]) {
-        for index in offsets {
-            guard index < alarmsList.count else { continue }
-            let alarm = alarmsList[index]
-            Task {
-                try? await alarmService.cancelAlarm(id: alarm.id)
-            }
-            modelContext.delete(alarm)
-        }
-        try? modelContext.save()
+
+    func requestAuthorization() async {
+        _ = await repository.requestAuthorization()
+    }
+
+    func checkAuthorization() {
+        repository.checkAuthorization()
     }
 }

@@ -10,23 +10,31 @@ import SwiftData
 
 @main
 struct YaClockApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            LocalAlarm.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
+    let container: ModelContainer
+    let repository: AlarmRepository
+
+    init() {
+        let schema = Schema([LocalAlarm.self])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            let container = try ModelContainer(for: schema, configurations: [config])
+            self.container = container
+            // 依赖树：ModelContainer.mainContext → AlarmRepository → Views
+            self.repository = AlarmRepository(
+                modelContext: container.mainContext,
+                alarmService: AlarmKitService.shared
+            )
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
-    }()
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            AlarmListView(repository: repository)
         }
-        .modelContainer(sharedModelContainer)
+        .modelContainer(container)
     }
 }
+

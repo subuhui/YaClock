@@ -1,72 +1,55 @@
+// MARK: - Presentation Layer · AlarmEdit
 import Foundation
-import SwiftData
-import Observation
 
+/// 闹钟编辑页的 ViewModel。
+/// 通过 SaveAlarmUseCase 保存，不直接持有 ModelContext 或 AlarmKitService。
 @Observable
 @MainActor
 final class AlarmEditViewModel {
-    private let modelContext: ModelContext
-    private let alarmService: AlarmServiceProtocol
-    let alarmToEdit: LocalAlarm?
-    
+
+    // MARK: 编辑状态
     var selectedTime = Date()
     var label = "闹钟"
-    var repeatDays: Set<Int> = [] // 1: Sunday, ..., 7: Saturday
+    var repeatDays: Set<Int> = []   // 1: Sunday … 7: Saturday
     var soundName = "默认"
-    
-    init(modelContext: ModelContext, alarmToEdit: LocalAlarm?, alarmService: AlarmServiceProtocol = AlarmKitService.shared) {
-        self.modelContext = modelContext
-        self.alarmToEdit = alarmToEdit
-        self.alarmService = alarmService
-        
-        if let alarm = alarmToEdit {
-            self.label = alarm.label
-            self.repeatDays = Set(alarm.repeatDays)
-            self.soundName = alarm.soundName
-            
+
+    // MARK: 只读
+    let isEditing: Bool
+
+    // MARK: 私有
+    private let editingEntity: AlarmEntity?
+    private let saveUseCase: SaveAlarmUseCase
+
+    init(editingEntity: AlarmEntity?, repository: AlarmRepository) {
+        self.editingEntity = editingEntity
+        self.isEditing = editingEntity != nil
+        self.saveUseCase = SaveAlarmUseCase(repository: repository)
+
+        if let entity = editingEntity {
+            label = entity.label
+            repeatDays = Set(entity.repeatDays)
+            soundName = entity.soundName
+
             var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
-            components.hour = alarm.hour
-            components.minute = alarm.minute
-            if let date = Calendar.current.date(from: components) {
-                self.selectedTime = date
-            }
+            components.hour = entity.hour
+            components.minute = entity.minute
+            selectedTime = Calendar.current.date(from: components) ?? Date()
         }
     }
-    
-    func saveAlarm() async {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: selectedTime)
-        let minute = calendar.component(.minute, from: selectedTime)
-        let sortedDays = Array(repeatDays).sorted()
-        
-        let alarm: LocalAlarm
-        if let alarmToEdit = alarmToEdit {
-            alarmToEdit.hour = hour
-            alarmToEdit.minute = minute
-            alarmToEdit.repeatDays = sortedDays
-            alarmToEdit.label = label
-            alarmToEdit.soundName = soundName
-            alarm = alarmToEdit
-        } else {
-            alarm = LocalAlarm(
-                hour: hour,
-                minute: minute,
-                repeatDays: sortedDays,
-                label: label,
-                isEnabled: true,
-                soundName: soundName
-            )
-            modelContext.insert(alarm)
-        }
-        
-        try? modelContext.save()
-        
-        if alarm.isEnabled {
-            do {
-                try await alarmService.scheduleAlarm(alarm)
-            } catch {
-                print("Failed to schedule alarm on save: \(error)")
-            }
-        }
+
+    // MARK: - 意图
+
+    func save() async throws {
+        let cal = Calendar.current
+        let entity = AlarmEntity(
+            id: editingEntity?.id ?? UUID(),
+            hour: cal.component(.hour, from: selectedTime),
+            minute: cal.component(.minute, from: selectedTime),
+            repeatDays: Array(repeatDays).sorted(),
+            label: label,
+            isEnabled: editingEntity?.isEnabled ?? true,
+            soundName: soundName
+        )
+        try await saveUseCase.execute(entity)
     }
 }
