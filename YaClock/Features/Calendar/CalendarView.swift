@@ -9,6 +9,7 @@ struct CalendarView: View {
     @Environment(AppContainer.self) private var container
 
     @State private var showingDayDetail = false
+    @State private var showingSettings = false
 
     init(container: AppContainer) {
         _viewModel = State(wrappedValue: CalendarViewModel(container: container))
@@ -61,13 +62,16 @@ struct CalendarView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink {
-                        SettingsView()
+                    Button {
+                        showingSettings = true
                     } label: {
                         Image(systemName: "gearshape")
                             .foregroundStyle(.secondary)
                     }
                 }
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
             .sheet(isPresented: $showingDayDetail, onDismiss: { viewModel.onAppear() }) {
                 DayDetailSheet(
@@ -128,6 +132,57 @@ struct CalendarView: View {
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
+    // MARK: - 节假日与调休标识数据结构
+
+    private struct DayHolidayMark {
+        let text: String
+        let color: Color
+    }
+
+    /// 获取特定日期所对应的班休字样及配色
+    private func getHolidayMark(for date: Date, isSelected: Bool) -> DayHolidayMark {
+        let calendar = Calendar.current
+        let holidayType = HolidayProvider().checkHoliday(on: date)
+        
+        if isSelected {
+            // 被选中态：文字均为反白高亮，通过透明度稍作区分
+            if let holidayType {
+                switch holidayType {
+                case .holiday: return DayHolidayMark(text: "假", color: .white.opacity(0.95))
+                case .workday: return DayHolidayMark(text: "班", color: .white.opacity(0.95))
+                }
+            } else {
+                let w = calendar.component(.weekday, from: date)
+                if w == 1 || w == 7 {
+                    return DayHolidayMark(text: "休", color: .white.opacity(0.8))
+                } else {
+                    return DayHolidayMark(text: "班", color: .white.opacity(0.8))
+                }
+            }
+        } else {
+            // 普通未选中态：严格遵循 Neutral UI + User Accent 规范配色
+            if let holidayType {
+                switch holidayType {
+                case .holiday:
+                    // 法定节假日：明亮红字“假”
+                    return DayHolidayMark(text: "假", color: Color(hex: "DC2626"))
+                case .workday:
+                    // 调休补班日：主题强调蓝/Accent字“班”
+                    return DayHolidayMark(text: "班", color: container.accentColorManager.color)
+                }
+            } else {
+                let w = calendar.component(.weekday, from: date)
+                if w == 1 || w == 7 {
+                    // 普通周末：小“休”
+                    return DayHolidayMark(text: "休", color: .secondary.opacity(0.6))
+                } else {
+                    // 普通工作日：小灰字“班”
+                    return DayHolidayMark(text: "班", color: .secondary.opacity(0.4))
+                }
+            }
+        }
+    }
+
     // MARK: - 单日格子
 
     private func dayCell(_ date: Date) -> some View {
@@ -137,11 +192,13 @@ struct CalendarView: View {
         let dayNum = calendar.component(.day, from: date)
         let dateKey = dayKey(date)
         let hasRinging = viewModel.ringingDays.contains(dateKey)
-        let holidayType = HolidayProvider().checkHoliday(on: date)
         let isWeekend = {
             let w = calendar.component(.weekday, from: date)
             return w == 1 || w == 7
         }()
+        
+        let mark = getHolidayMark(for: date, isSelected: isSelected)
+        let accentColor = container.accentColorManager.color
 
         return Button {
             viewModel.selectDate(date)
@@ -150,11 +207,11 @@ struct CalendarView: View {
                 ZStack {
                     if isSelected {
                         Circle()
-                            .fill(Color.accentColor)
+                            .fill(accentColor)
                             .frame(width: 32, height: 32)
                     } else if isToday {
                         Circle()
-                            .stroke(Color.accentColor, lineWidth: 1.5)
+                            .stroke(accentColor, lineWidth: 1.5)
                             .frame(width: 32, height: 32)
                     }
 
@@ -163,17 +220,15 @@ struct CalendarView: View {
                             .font(.system(size: 15, weight: isToday || isSelected ? .semibold : .regular))
                             .foregroundStyle(isSelected ? .white : isWeekend ? .red.opacity(0.8) : .primary)
 
-                        if holidayType != nil {
-                            Text(holidayBadge(holidayType!))
-                                .font(.system(size: 7, weight: .medium))
-                                .foregroundStyle(isSelected ? .white.opacity(0.8) : .red.opacity(0.7))
-                        }
+                        Text(mark.text)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(mark.color)
                     }
                 }
 
-                // 响铃圆点
+                // 响铃圆点 (使用当前全局 Accent)
                 Circle()
-                    .fill(hasRinging ? Color.accentColor : Color.clear)
+                    .fill(hasRinging ? accentColor : Color.clear)
                     .frame(width: 4, height: 4)
             }
         }
@@ -191,7 +246,7 @@ struct CalendarView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Rectangle()
-                    .fill(Color.accentColor)
+                    .fill(container.accentColorManager.color)
                     .frame(width: 3)
                     .clipShape(Capsule())
                 Text("\(formatter.string(from: viewModel.selectedDate)) 详情")
@@ -272,10 +327,4 @@ struct CalendarView: View {
         return f.string(from: date)
     }
 
-    private func holidayBadge(_ type: HolidayType) -> String {
-        switch type {
-        case .holiday: return "休"
-        case .workday: return "班"
-        }
-    }
 }
