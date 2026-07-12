@@ -20,6 +20,9 @@ struct RuleEngineTests {
     }
     
     @Test func testWeeklyRule() async throws {
+        // 设为忽略节假日，以确保基础每周重复规则不受全局设置干扰
+        UserDefaults.standard.set(ChineseWorkdayPolicy.ignoreHoliday.rawValue, forKey: "defaultHolidayPolicy")
+        
         let engine = RuleEngine()
         let holidays = HolidayProvider()
         
@@ -45,6 +48,34 @@ struct RuleEngineTests {
         #expect(occurrences.count == 2)
         #expect(Calendar.current.component(.weekday, from: occurrences[0].fireDate) == 5)
         #expect(Calendar.current.component(.weekday, from: occurrences[1].fireDate) == 3)
+    }
+    
+    @Test func testWeeklyRuleWithGlobalHolidayPolicy() async throws {
+        // [Test] 验证在全局设定“跳过节假日”时，普通的每周重复闹钟在法定假期中能被自动过滤（不响）
+        UserDefaults.standard.set(ChineseWorkdayPolicy.skipHoliday.rawValue, forKey: "defaultHolidayPolicy")
+        
+        let engine = RuleEngine()
+        let holidays = HolidayProvider()
+        
+        let schedule = Schedule(
+            name: "每周工作日闹钟",
+            time: LocalTime(hour: 7, minute: 0),
+            rule: .weekly(WeeklyRule(repeatDays: [2, 3, 4, 5, 6])) // 周一至五
+        )
+        
+        // 2026年元旦：1月1日(周四，放假)
+        let start = makeDate(year: 2026, month: 1, day: 1)
+        let end = makeDate(year: 2026, month: 1, day: 1)
+        
+        let occurrences = engine.generateOccurrences(
+            for: schedule,
+            overrides: [],
+            holidays: holidays,
+            in: start...end
+        )
+        
+        // 元旦这天应被过滤跳过
+        #expect(occurrences.isEmpty)
     }
     
     @Test func testChineseWorkdayRule() async throws {

@@ -134,6 +134,37 @@ public struct RuleEngine {
                 }
             }
             
+            // 3.5 根据全局默认节假日策略，对长期重复规则在法定假期/补班日进行智能过滤和追加
+            let isRepeatingRule: Bool = {
+                switch schedule.rule {
+                case .once:
+                    return false
+                case .chineseWorkday:
+                    // chineseWorkday 内部已经自带了政策处理，这里不需要二次处理
+                    return false
+                default:
+                    return true
+                }
+            }()
+            
+            if isRepeatingRule {
+                let globalPolicyRaw = UserDefaults.standard.string(forKey: "defaultHolidayPolicy") ?? ChineseWorkdayPolicy.skipHoliday.rawValue
+                let globalPolicy = ChineseWorkdayPolicy(rawValue: globalPolicyRaw) ?? .skipHoliday
+                
+                if let holidayType = holidays.checkHoliday(on: currentDate) {
+                    switch holidayType {
+                    case .holiday:
+                        if globalPolicy == .followHoliday || globalPolicy == .skipHoliday {
+                            isRingingByDefault = false // 法定假期，智能跳过不响
+                        }
+                    case .workday:
+                        if globalPolicy == .followHoliday {
+                            isRingingByDefault = true // 调休补班，智能强行响铃
+                        }
+                    }
+                }
+            }
+            
             // 4. 应用 Override 覆盖决策
             var isRinging = isRingingByDefault
             var ringTime = defaultRingTime
