@@ -6,8 +6,9 @@ import SwiftUI
 
 struct SchedulesView: View {
     @State private var viewModel: SchedulesViewModel
-    @State private var showingEditor = false
-    @State private var editingSchedule: Schedule?
+    
+    /// 当前展开的编辑或新建作息弹窗状态，作为单一可信源控制 Sheet 弹出并传递关联数据，避免多状态同步引发的首次点击不弹出 Bug
+    @State private var activeSheet: ActiveSheet?
 
     init(container: AppContainer) {
         _viewModel = State(wrappedValue: SchedulesViewModel(container: container))
@@ -40,15 +41,19 @@ struct SchedulesView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
-                        editingSchedule = nil
-                        showingEditor = true
+                        activeSheet = .create
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-            .sheet(isPresented: $showingEditor, onDismiss: { viewModel.onAppear() }) {
-                ScheduleEditorView(schedule: editingSchedule)
+            .sheet(item: $activeSheet, onDismiss: { viewModel.onAppear() }) { sheetType in
+                switch sheetType {
+                case .create:
+                    ScheduleEditorView(schedule: nil)
+                case .edit(let schedule):
+                    ScheduleEditorView(schedule: schedule)
+                }
             }
         }
         .onAppear { viewModel.onAppear() }
@@ -110,8 +115,7 @@ struct SchedulesView: View {
 
     private func scheduleCard(_ schedule: Schedule) -> some View {
         Button {
-            editingSchedule = schedule
-            showingEditor = true
+            activeSheet = .edit(schedule)
         } label: {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -157,7 +161,7 @@ struct SchedulesView: View {
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
             Button("新建作息") {
-                showingEditor = true
+                activeSheet = .create
             }
             .buttonStyle(.borderedProminent)
             Spacer()
@@ -195,6 +199,26 @@ struct SchedulesView: View {
         if sorted == [2, 3, 4, 5, 6] { return "周一至周五" }
         if sorted == [1, 7] { return "周末" }
         return sorted.compactMap { (0..<names.count).contains($0) ? names[$0] : nil }.joined(separator: "、")
+    }
+}
+
+// MARK: - 弹窗状态管理
+
+/// 编辑器弹窗的活跃类型，区分新建与编辑模式，并符合 Identifiable 协议以供 sheet(item:) 绑定
+private enum ActiveSheet: Identifiable {
+    /// 新建模式
+    case create
+    /// 编辑模式，携带待编辑的作息数据
+    case edit(Schedule)
+
+    /// 唯一标识符，使枚举符合 Identifiable 协议
+    var id: String {
+        switch self {
+        case .create:
+            return "create"
+        case .edit(let s):
+            return s.id.uuidString
+        }
     }
 }
 
