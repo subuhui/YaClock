@@ -130,6 +130,26 @@ struct CalendarView: View {
         .padding(16)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .gesture(
+            DragGesture(minimumDistance: 15)
+                .onEnded { value in
+                    let threshold: CGFloat = 50
+                    // 仅当水平方向滑动主导时才触发月份切换，防止上下滑动日历时发生误触
+                    if abs(value.translation.width) > abs(value.translation.height) {
+                        if value.translation.width > threshold {
+                            // 从左往右滑：切换到上个月
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                viewModel.previousMonth()
+                            }
+                        } else if value.translation.width < -threshold {
+                            // 从右往左滑：切换到下个月
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+                                viewModel.nextMonth()
+                            }
+                        }
+                    }
+                }
+        )
     }
 
     // MARK: - 节假日与调休标识数据结构
@@ -208,20 +228,20 @@ struct CalendarView: View {
                     if isSelected {
                         Circle()
                             .fill(accentColor)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 38, height: 38)
                     } else if isToday {
                         Circle()
                             .stroke(accentColor, lineWidth: 1.5)
-                            .frame(width: 34, height: 34)
+                            .frame(width: 38, height: 38)
                     }
 
                     VStack(spacing: 1) {
                         Text("\(dayNum)")
-                            .font(.system(size: 17, weight: isToday || isSelected ? .bold : .medium))
+                            .font(.system(size: 20, weight: isToday || isSelected ? .bold : .semibold))
                             .foregroundStyle(isSelected ? .white : isWeekend ? .red.opacity(0.8) : .primary)
 
                         Text(mark.text)
-                            .font(.system(size: 10, weight: .bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(mark.color)
                     }
                 }
@@ -233,7 +253,7 @@ struct CalendarView: View {
             }
         }
         .buttonStyle(.plain)
-        .frame(height: 46)
+        .frame(height: 52)
     }
 
     // MARK: - 选中日详情
