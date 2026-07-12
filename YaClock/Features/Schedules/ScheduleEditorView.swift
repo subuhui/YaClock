@@ -255,7 +255,7 @@ struct ScheduleEditorView: View {
                     Text(day.name)
                         .font(.subheadline)
                     Spacer()
-                    Image(systemName: day.isRinging ? "alarm" : "alarm.slash")
+                    Image(systemName: day.isRinging ? "alarm" : "bell.slash")
                         .foregroundStyle(day.isRinging ? .primary : .tertiary)
                     Button {
                         cycleDays.remove(at: index)

@@ -150,7 +150,7 @@ struct SchedulesView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(systemName: "alarm.slash")
+            Image(systemName: "bell.slash")
                 .font(.system(size: 56))
                 .foregroundStyle(.quaternary)
             Text("定义你的节奏，管理你的时间")
