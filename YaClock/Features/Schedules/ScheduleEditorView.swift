@@ -208,6 +208,7 @@ struct ScheduleEditorView: View {
                         .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
                 }
             }
+            .environment(\.locale, Locale(identifier: "zh_CN"))
         }
     }
 
