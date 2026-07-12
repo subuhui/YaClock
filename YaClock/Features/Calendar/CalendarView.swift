@@ -208,20 +208,20 @@ struct CalendarView: View {
                     if isSelected {
                         Circle()
                             .fill(accentColor)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 34, height: 34)
                     } else if isToday {
                         Circle()
                             .stroke(accentColor, lineWidth: 1.5)
-                            .frame(width: 32, height: 32)
+                            .frame(width: 34, height: 34)
                     }
 
-                    VStack(spacing: 0) {
+                    VStack(spacing: 1) {
                         Text("\(dayNum)")
-                            .font(.system(size: 15, weight: isToday || isSelected ? .semibold : .regular))
+                            .font(.system(size: 17, weight: isToday || isSelected ? .bold : .medium))
                             .foregroundStyle(isSelected ? .white : isWeekend ? .red.opacity(0.8) : .primary)
 
                         Text(mark.text)
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 10, weight: .bold))
                             .foregroundStyle(mark.color)
                     }
                 }
@@ -233,7 +233,7 @@ struct CalendarView: View {
             }
         }
         .buttonStyle(.plain)
-        .frame(height: 44)
+        .frame(height: 46)
     }
 
     // MARK: - 选中日详情
@@ -253,6 +253,24 @@ struct CalendarView: View {
                     .font(.headline)
             }
             .frame(height: 20)
+
+            // 节假日或补班信息展示横幅
+            if let holiday = viewModel.selectedDayHolidayType {
+                HStack(spacing: 8) {
+                    Image(systemName: isHoliday(holiday) ? "calendar.badge.clock" : "calendar.badge.plus")
+                        .font(.subheadline)
+                        .foregroundStyle(isHoliday(holiday) ? Color(hex: "DC2626") : container.accentColorManager.color)
+                    Text(holidayLabelText(holiday))
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(isHoliday(holiday) ? Color(hex: "DC2626") : .primary)
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isHoliday(holiday) ? Color(hex: "DC2626").opacity(0.08) : container.accentColorManager.color.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
 
             Button {
                 showingDayDetail = true
@@ -327,4 +345,15 @@ struct CalendarView: View {
         return f.string(from: date)
     }
 
+    private func isHoliday(_ type: HolidayType) -> Bool {
+        if case .holiday = type { return true }
+        return false
+    }
+
+    private func holidayLabelText(_ type: HolidayType) -> String {
+        switch type {
+        case .holiday(let name): return "今天是\(name)假期"
+        case .workday(let reason): return "今天是工作日（\(reason)）"
+        }
+    }
 }
