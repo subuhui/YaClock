@@ -27,6 +27,7 @@ struct ScheduleEditorView: View {
     @State private var snoozeEnabled: Bool
     @State private var snoozeDuration: Int
     @State private var isSaving = false
+    @State private var showingCycleEditor = false
 
     init(schedule: Schedule?) {
         self.originalSchedule = schedule
@@ -159,8 +160,25 @@ struct ScheduleEditorView: View {
                         weekdayPicker(title: "B 周响铃", selection: $weekBDays)
 
                     case .cycle:
-                        DatePicker("锚点日期", selection: $anchorDate, displayedComponents: .date)
-                        cycleDaysEditor
+                        Button {
+                            showingCycleEditor = true
+                        } label: {
+                            HStack {
+                                Text("设置轮班周期")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                if cycleDays.isEmpty {
+                                    Text("未设置")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("\(cycleDays.count)天一循环")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
                     }
 
                 } header: {
@@ -209,6 +227,14 @@ struct ScheduleEditorView: View {
                 }
             }
             .environment(\.locale, Locale(identifier: "zh_CN"))
+            .sheet(isPresented: $showingCycleEditor) {
+                CycleEditorView(
+                    defaultHour: $selectedHour,
+                    defaultMinute: $selectedMinute,
+                    anchorDate: $anchorDate,
+                    cycleDays: $cycleDays
+                )
+            }
         }
     }
 
@@ -243,37 +269,6 @@ struct ScheduleEditorView: View {
         }
     }
 
-    // MARK: - 轮班周期编辑
-
-    private var cycleDaysEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(Array(cycleDays.enumerated()), id: \.offset) { index, day in
-                HStack {
-                    Text("第 \(index + 1) 天")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 44)
-                    Text(day.name)
-                        .font(.subheadline)
-                    Spacer()
-                    Image(systemName: day.isRinging ? "alarm" : "bell.slash")
-                        .foregroundStyle(day.isRinging ? .primary : .tertiary)
-                    Button {
-                        cycleDays.remove(at: index)
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-
-            Button {
-                cycleDays.append(CycleDay(name: "新班次", isWorking: true, isRinging: true))
-            } label: {
-                Label("添加班次", systemImage: "plus.circle")
-            }
-        }
-    }
 
     // MARK: - 保存
 
