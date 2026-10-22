@@ -21,7 +21,7 @@ final class SaveScheduleUseCase {
     /// - Parameter schedule: 需要保存的作息表实体
     func execute(_ schedule: Schedule) async throws {
         try scheduleRepo.save(schedule)
-        try await refreshUseCase.execute()
+        try await refreshUseCase.execute(rescheduling: schedule.id)
     }
 }
 

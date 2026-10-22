@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>我们需要系统闹钟权限来为您创建并调度自定义闹钟。</string>
 </dict>

@@ -6,10 +6,6 @@ import Foundation
 import SwiftUI
 import AlarmKit
 
-#if canImport(AlarmKit)
-struct EmptyMetadata: AlarmMetadata {}
-#endif
-
 /// 基于 AlarmKit 的真机闹钟调度实现
 /// 注意：AlarmKit 只支持 iOS 26+ 真机，此类不应在模拟器中实例化
 @available(iOS 26.0, *)
@@ -27,12 +23,19 @@ final class AlarmKitScheduler: AlarmScheduler {
         // 构造 AlarmPresentation.Alert
         let alertPresentation = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: occurrence.label),
-            stopButton: AlarmButton(text: "停止", textColor: .white, systemImageName: "xmark.circle.fill")
+            stopButton: AlarmButton(text: "停止", textColor: .white, systemImageName: "xmark.circle.fill"),
+            secondaryButton: occurrence.snooze.isEnabled
+                ? AlarmButton(text: "贪睡", textColor: .white, systemImageName: "zzz") : nil,
+            secondaryButtonBehavior: occurrence.snooze.isEnabled ? .countdown : nil
         )
 
         // 构造 AlarmAttributes
         let attributes = AlarmAttributes<EmptyMetadata>(
-            presentation: AlarmPresentation(alert: alertPresentation),
+            presentation: AlarmPresentation(
+                alert: alertPresentation,
+                countdown: occurrence.snooze.isEnabled
+                    ? AlarmPresentation.Countdown(title: "贪睡中") : nil
+            ),
             tintColor: .blue
         )
 
@@ -41,7 +44,9 @@ final class AlarmKitScheduler: AlarmScheduler {
 
         // 构造 AlarmConfiguration
         let configuration = AlarmManager.AlarmConfiguration<EmptyMetadata>(
-            countdownDuration: nil,
+            countdownDuration: occurrence.snooze.isEnabled
+                ? Alarm.CountdownDuration(preAlert: nil, postAlert: TimeInterval(occurrence.snooze.durationMinutes) * 60)
+                : nil,
             schedule: schedule,
             attributes: attributes
         )

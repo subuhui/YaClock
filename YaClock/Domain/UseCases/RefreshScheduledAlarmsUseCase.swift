@@ -37,7 +37,8 @@ final class RefreshScheduledAlarmsUseCase {
     }
 
     /// 执行全量对账：计算预期 → 与系统对比 → 增删调度
-    func execute() async throws {
+    /// - Parameter scheduleID: 保存后需要重新下发配置的作息，避免稳定 ID 导致贪睡等设置被跳过
+    func execute(rescheduling scheduleID: UUID? = nil) async throws {
         let now = Date()
         guard let future = Calendar.current.date(byAdding: .day, value: lookaheadDays, to: now) else { return }
         let dateRange = now...future
@@ -66,7 +67,8 @@ final class RefreshScheduledAlarmsUseCase {
         let expectedIDs = Set(expectedOccurrences.keys)
 
         // 需要新增下发的：在预期中，但系统队列没有
-        let toSchedule = expectedIDs.subtracting(systemScheduledIDs)
+        let toUpdate = Set(expectedOccurrences.values.filter { $0.scheduleID == scheduleID }.map { $0.id })
+        let toSchedule = expectedIDs.subtracting(systemScheduledIDs).union(toUpdate)
 
         // 需要取消的：系统队列中有，但预期中不再需要
         let toCancel = systemScheduledIDs.subtracting(expectedIDs)

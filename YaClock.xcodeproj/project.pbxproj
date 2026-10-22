@@ -6,6 +6,26 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXCopyFilesBuildPhase section */
+
+		AC1000000000000000000007 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (AC1000000000000000000001 /* YaClockWidgets.appex in Embed App Extensions */, );
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXBuildFile section */
+
+		AC1000000000000000000001 /* YaClockWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = AC1000000000000000000002 /* YaClockWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AC1000000000000000000003 /* YaClockAlarmWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1000000000000000000004; };
+		AC1000000000000000000005 /* EmptyMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1000000000000000000006; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		917DBA183002275100B994FA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +41,25 @@
 			remoteGlobalIDString = 917DBA053002274F00B994FA;
 			remoteInfo = YaClock;
 		};
+
+		AC1000000000000000000008 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 917DB9FE3002274F00B994FA;
+			proxyType = 1;
+			remoteGlobalIDString = AC1000000000000000000009;
+			remoteInfo = YaClockWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		917DBA063002274F00B994FA /* YaClock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YaClock.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		917DBA173002275100B994FA /* YaClockTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YaClockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		917DBA213002275100B994FA /* YaClockUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = YaClockUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+
+		AC1000000000000000000002 /* YaClockWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = YaClockWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC1000000000000000000004 /* YaClockAlarmWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YaClockAlarmWidget.swift; sourceTree = "<group>"; };
+		AC1000000000000000000006 /* EmptyMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YaClock/Shared/EmptyMetadata.swift; sourceTree = SOURCE_ROOT; };
+		AC100000000000000000000A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -82,6 +115,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+
+		AC100000000000000000000E = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -89,6 +124,7 @@
 			isa = PBXGroup;
 			children = (
 				917DBA083002274F00B994FA /* YaClock */,
+				AC100000000000000000000B /* YaClockWidgets */,
 				917DBA1A3002275100B994FA /* YaClockTests */,
 				917DBA243002275100B994FA /* YaClockUITests */,
 				917DBA073002274F00B994FA /* Products */,
@@ -99,10 +135,18 @@
 			isa = PBXGroup;
 			children = (
 				917DBA063002274F00B994FA /* YaClock.app */,
+				AC1000000000000000000002 /* YaClockWidgets.appex */,
 				917DBA173002275100B994FA /* YaClockTests.xctest */,
 				917DBA213002275100B994FA /* YaClockUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+
+		AC100000000000000000000B /* YaClockWidgets */ = {
+			isa = PBXGroup;
+			children = (AC1000000000000000000004, AC1000000000000000000006, AC100000000000000000000A, );
+			path = YaClockWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -115,10 +159,12 @@
 				917DBA023002274F00B994FA /* Sources */,
 				917DBA033002274F00B994FA /* Frameworks */,
 				917DBA043002274F00B994FA /* Resources */,
+				AC1000000000000000000007 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				AC1000000000000000000010 /* YaClockWidgets */,
 			);
 			fileSystemSynchronizedGroups = (
 				917DBA083002274F00B994FA /* YaClock */,
@@ -176,6 +222,18 @@
 			productReference = 917DBA213002275100B994FA /* YaClockUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+
+		AC1000000000000000000009 /* YaClockWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AC100000000000000000000C;
+			buildPhases = (AC100000000000000000000D, AC100000000000000000000E, AC100000000000000000000F, );
+			buildRules = ();
+			dependencies = ();
+			name = YaClockWidgets;
+			productName = YaClockWidgets;
+			productReference = AC1000000000000000000002;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -213,6 +271,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				AC1000000000000000000009 /* YaClockWidgets */,
 				917DBA053002274F00B994FA /* YaClock */,
 				917DBA163002275100B994FA /* YaClockTests */,
 				917DBA203002275100B994FA /* YaClockUITests */,
@@ -242,6 +301,8 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+
+		AC100000000000000000000F = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -266,6 +327,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+
+		AC100000000000000000000D = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (AC1000000000000000000003, AC1000000000000000000005, );
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -279,6 +347,8 @@
 			target = 917DBA053002274F00B994FA /* YaClock */;
 			targetProxy = 917DBA223002275100B994FA /* PBXContainerItemProxy */;
 		};
+
+		AC1000000000000000000010 = {isa = PBXTargetDependency; target = AC1000000000000000000009; targetProxy = AC1000000000000000000008; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -289,7 +359,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 84BX2B4UKP;
+				DEVELOPMENT_TEAM = D8D393YYVW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = YaClock/Info.plist;
@@ -325,7 +395,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 84BX2B4UKP;
+				DEVELOPMENT_TEAM = D8D393YYVW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = YaClock/Info.plist;
@@ -569,6 +639,54 @@
 			};
 			name = Release;
 		};
+
+		AC1000000000000000000011 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D8D393YYVW;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = YaClockWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = YaClock;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.subuhui.YaClock.Widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+
+		AC1000000000000000000012 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = D8D393YYVW;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = YaClockWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = YaClock;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks", );
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.subuhui.YaClock.Widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -605,6 +723,13 @@
 				917DBA333002275100B994FA /* Debug */,
 				917DBA343002275100B994FA /* Release */,
 			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		AC100000000000000000000C = {
+			isa = XCConfigurationList;
+			buildConfigurations = (AC1000000000000000000011, AC1000000000000000000012, );
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
