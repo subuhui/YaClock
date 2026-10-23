@@ -5,6 +5,7 @@
 import SwiftUI
 
 struct SchedulesView: View {
+    @Environment(AppContainer.self) private var container
     @State private var viewModel: SchedulesViewModel
     
     /// 当前展开的编辑或新建作息弹窗状态，作为单一可信源控制 Sheet 弹出并传递关联数据，避免多状态同步引发的首次点击不弹出 Bug
@@ -37,26 +38,34 @@ struct SchedulesView: View {
                     }
                 }
             }
+            .alert("操作失败", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
+                Button("好") { viewModel.errorMessage = nil }
+            } message: { Text(viewModel.errorMessage ?? "") }
             .navigationTitle("作息")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        activeSheet = .create
-                    } label: {
-                        Image(systemName: "plus")
-                    }
+                    Menu {
+                        Button("空白作息") { activeSheet = .create }
+                        ForEach(ScheduleTemplate.allCases) { template in
+                            Button(template.rawValue) { activeSheet = .seed(template.makeSchedule()) }
+                        }
+                    } label: { Image(systemName: "plus") }
+                    .accessibilityLabel("新建作息或选择模板")
                 }
             }
             .sheet(item: $activeSheet, onDismiss: { viewModel.onAppear() }) { sheetType in
                 switch sheetType {
                 case .create:
                     ScheduleEditorView(schedule: nil)
+                case .seed(let schedule):
+                    ScheduleEditorView(schedule: schedule, isNew: true)
                 case .edit(let schedule):
                     ScheduleEditorView(schedule: schedule)
                 }
             }
         }
         .onAppear { viewModel.onAppear() }
+        .onChange(of: container.refreshUseCase.lastSync) { _, _ in viewModel.onAppear() }
     }
 
     // MARK: - 即将到来 Banner
@@ -136,9 +145,24 @@ struct SchedulesView: View {
                 }
                 Spacer()
             }
+            .padding(.trailing, 40)
             .padding(18)
             .background(.regularMaterial)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .contextMenu {
+            Button("复制作息", systemImage: "doc.on.doc") { activeSheet = .seed(schedule.copyForCreation()) }
+            Button("删除", systemImage: "trash", role: .destructive) { viewModel.delete(id: schedule.id) }
+        }
+        .overlay(alignment: .topTrailing) {
+            Menu {
+                Button("复制作息", systemImage: "doc.on.doc") { activeSheet = .seed(schedule.copyForCreation()) }
+                Button("删除", systemImage: "trash", role: .destructive) { viewModel.delete(id: schedule.id) }
+            } label: {
+                Image(systemName: "ellipsis").frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("作息操作：" + schedule.name)
+            .padding(4)
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
@@ -164,6 +188,10 @@ struct SchedulesView: View {
                 activeSheet = .create
             }
             .buttonStyle(.borderedProminent)
+            ForEach(ScheduleTemplate.allCases) { template in
+                Button("使用\(template.rawValue)模板") { activeSheet = .seed(template.makeSchedule()) }
+                    .frame(minHeight: 44)
+            }
             Spacer()
         }
     }
@@ -208,6 +236,7 @@ struct SchedulesView: View {
 private enum ActiveSheet: Identifiable {
     /// 新建模式
     case create
+    case seed(Schedule)
     /// 编辑模式，携带待编辑的作息数据
     case edit(Schedule)
 
@@ -216,6 +245,8 @@ private enum ActiveSheet: Identifiable {
         switch self {
         case .create:
             return "create"
+        case .seed(let s):
+            return "seed-" + s.id.uuidString
         case .edit(let s):
             return s.id.uuidString
         }

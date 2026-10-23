@@ -21,7 +21,7 @@ struct RuleEngineTests {
     
     @Test func testWeeklyRule() async throws {
         // 设为忽略节假日，以确保基础每周重复规则不受全局设置干扰
-        UserDefaults.standard.set(ChineseWorkdayPolicy.ignoreHoliday.rawValue, forKey: "defaultHolidayPolicy")
+
         
         let engine = RuleEngine()
         let holidays = HolidayProvider()
@@ -29,7 +29,7 @@ struct RuleEngineTests {
         let schedule = Schedule(
             name: "每周二四响铃",
             time: LocalTime(hour: 7, minute: 30),
-            rule: .weekly(WeeklyRule(repeatDays: [3, 5])) // 3 = 周二, 5 = 周四
+            rule: .weekly(WeeklyRule(repeatDays: [3, 5])), startDate: .distantPast // 3 = 周二, 5 = 周四
         )
         
         // 查询 2026年1月1日(周四) 到 2026年1月7日(周三)
@@ -40,7 +40,8 @@ struct RuleEngineTests {
             for: schedule,
             overrides: [],
             holidays: holidays,
-            in: start...end
+            in: start...end,
+            holidayPolicy: .ignoreHoliday
         )
         
         // 2026年1月1日(周四) -> 应响
@@ -52,7 +53,7 @@ struct RuleEngineTests {
     
     @Test func testWeeklyRuleWithGlobalHolidayPolicy() async throws {
         // [Test] 验证在全局设定“跳过节假日”时，普通的每周重复闹钟在法定假期中能被自动过滤（不响）
-        UserDefaults.standard.set(ChineseWorkdayPolicy.skipHoliday.rawValue, forKey: "defaultHolidayPolicy")
+
         
         let engine = RuleEngine()
         let holidays = HolidayProvider()
@@ -60,7 +61,7 @@ struct RuleEngineTests {
         let schedule = Schedule(
             name: "每周工作日闹钟",
             time: LocalTime(hour: 7, minute: 0),
-            rule: .weekly(WeeklyRule(repeatDays: [2, 3, 4, 5, 6])) // 周一至五
+            rule: .weekly(WeeklyRule(repeatDays: [2, 3, 4, 5, 6])), startDate: .distantPast // 周一至五
         )
         
         // 2026年元旦：1月1日(周四，放假)
@@ -71,7 +72,8 @@ struct RuleEngineTests {
             for: schedule,
             overrides: [],
             holidays: holidays,
-            in: start...end
+            in: start...end,
+            holidayPolicy: .skipHoliday
         )
         
         // 元旦这天应被过滤跳过
@@ -85,10 +87,10 @@ struct RuleEngineTests {
         let schedule = Schedule(
             name: "节假日调休闹钟",
             time: LocalTime(hour: 8, minute: 0),
-            rule: .chineseWorkday(ChineseWorkdayRule(policy: .followHoliday, repeatDays: [2, 3, 4, 5, 6])) // 周一至周五响
+            rule: .chineseWorkday(ChineseWorkdayRule(policy: .followHoliday, repeatDays: [2, 3, 4, 5, 6])), startDate: .distantPast // 周一至周五响
         )
         
-        // 2026年国庆节附近：9月27日(周日，国庆补班)，10月1日(周四，国庆节放假)
+        // 官方数据：9月25日至27日中秋放假，9月20日国庆补班，10月1日至7日放假
         // 我们查 2026-09-25 到 2026-10-05 期间
         let start = makeDate(year: 2026, month: 9, day: 25)
         let end = makeDate(year: 2026, month: 10, day: 5)
@@ -97,19 +99,14 @@ struct RuleEngineTests {
             for: schedule,
             overrides: [],
             holidays: holidays,
-            in: start...end
+            in: start...end,
+            holidayPolicy: .ignoreHoliday
         )
         
-        // 9-25(周五, 响), 9-27(周日补班, 响), 9-28至9-30(周一至三, 响), 10-1至10-3(放假, 不响), 10-4(周日, 本来就不响), 10-5(放假, 不响)
-        // 预期的响铃日期集合：
-        // - 9月25日 08:00
-        // - 9月27日 08:00 (补班)
-        // - 9月28日 08:00
-        // - 9月29日 08:00
-        // - 9月30日 08:00
+        // 此区间仅 9 月 28 至 30 日响铃。
         let ringDates = occurrences.map { calendarDateTuple(from: $0.fireDate) }
-        #expect(ringDates.contains(where: { $0 == (2026, 9, 25) }))
-        #expect(ringDates.contains(where: { $0 == (2026, 9, 27) }))
+        #expect(!ringDates.contains(where: { $0 == (2026, 9, 25) }))
+        #expect(!ringDates.contains(where: { $0 == (2026, 9, 27) }))
         #expect(ringDates.contains(where: { $0 == (2026, 9, 28) }))
         #expect(ringDates.contains(where: { $0 == (2026, 9, 29) }))
         #expect(ringDates.contains(where: { $0 == (2026, 9, 30) }))
@@ -137,7 +134,7 @@ struct RuleEngineTests {
         let schedule = Schedule(
             name: "大小周闹钟",
             time: LocalTime(hour: 9, minute: 0),
-            rule: .alternatingWeeks(rule)
+            rule: .alternatingWeeks(rule), startDate: .distantPast
         )
         
         // 查询 2026年1月5日(周一，A周) 到 2026年1月18日(周日，B周结束)
@@ -148,7 +145,8 @@ struct RuleEngineTests {
             for: schedule,
             overrides: [],
             holidays: holidays,
-            in: start...end
+            in: start...end,
+            holidayPolicy: .ignoreHoliday
         )
         
         let ringDates = occurrences.map { calendarDateTuple(from: $0.fireDate) }
@@ -177,7 +175,7 @@ struct RuleEngineTests {
         let schedule = Schedule(
             name: "轮班闹钟",
             time: LocalTime(hour: 8, minute: 30),
-            rule: .cycle(CycleRule(anchorDate: anchor, cycleDays: cycleDays))
+            rule: .cycle(CycleRule(anchorDate: anchor, cycleDays: cycleDays)), startDate: .distantPast
         )
         
         // 查询 1月1日(周四) 到 1月6日(周二)
@@ -188,7 +186,8 @@ struct RuleEngineTests {
             for: schedule,
             overrides: [],
             holidays: holidays,
-            in: start...end
+            in: start...end,
+            holidayPolicy: .ignoreHoliday
         )
         
         let ringDates = occurrences.map { calendarDateTuple(from: $0.fireDate) }
@@ -216,7 +215,7 @@ struct RuleEngineTests {
             id: scheduleID,
             name: "普通作息",
             time: LocalTime(hour: 7, minute: 0),
-            rule: .weekly(WeeklyRule(repeatDays: [2, 3, 4, 5, 6])) // 周一至五
+            rule: .weekly(WeeklyRule(repeatDays: [2, 3, 4, 5, 6])), startDate: .distantPast // 周一至五
         )
         
         // 2026-01-05 (周一) 设定为 skip
@@ -233,7 +232,8 @@ struct RuleEngineTests {
             for: schedule,
             overrides: [skipOverride, changeTimeOverride, forceOverride],
             holidays: holidays,
-            in: start...end
+            in: start...end,
+            holidayPolicy: .ignoreHoliday
         )
         
         // 1-5 (周一, 本来响, 被 skip) -> 不响

@@ -83,6 +83,7 @@ struct CalendarView: View {
             }
         }
         .onAppear { viewModel.onAppear() }
+        .onChange(of: container.refreshUseCase.lastSync) { _, _ in viewModel.onAppear() }
     }
 
     // MARK: - 月历卡片

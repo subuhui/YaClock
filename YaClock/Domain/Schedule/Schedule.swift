@@ -33,6 +33,10 @@ public struct Schedule: Identifiable, Codable, Hashable, Sendable {
     /// 作息有效期的结束日期，若为 nil 则表示长期无限期生效
     public var endDate: Date?
     
+    /// 临时休假日期，含起止日，到期自动按原规则恢复
+    public var vacationStart: Date?
+    public var vacationEnd: Date?
+
     /// 初始化作息表主实体
     /// - Parameters:
     ///   - id: 唯一标识符，默认自动生成
@@ -53,7 +57,9 @@ public struct Schedule: Identifiable, Codable, Hashable, Sendable {
         snooze: SnoozeConfiguration = .disabled,
         isEnabled: Bool = true,
         startDate: Date = Date(),
-        endDate: Date? = nil
+        endDate: Date? = nil,
+        vacationStart: Date? = nil,
+        vacationEnd: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -64,5 +70,7 @@ public struct Schedule: Identifiable, Codable, Hashable, Sendable {
         self.isEnabled = isEnabled
         self.startDate = startDate
         self.endDate = endDate
+        self.vacationStart = vacationStart
+        self.vacationEnd = vacationEnd
     }
 }

@@ -26,6 +26,8 @@ struct DayDetailSheet: View {
     @State private var pickerMinute: Int = 0
     @State private var showingRestoreAlert = false
     @State private var isActing = false
+    @State private var hasOverrides = false
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -68,6 +70,16 @@ struct DayDetailSheet: View {
                 Text("当天的临时调整将被清除，将恢复到作息规则的默认状态。")
             }
         }
+        .task {
+            do {
+                for schedule in try container.scheduleRepo.fetchAll() {
+                    if try container.overrideRepo.fetchAll(for: schedule.id).contains(where: { Calendar.current.isDate($0.targetDate, inSameDayAs: date) }) { hasOverrides = true }
+                }
+            } catch { errorMessage = error.localizedDescription }
+        }
+        .alert("操作失败", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("好") { errorMessage = nil }
+        } message: { Text(errorMessage ?? "") }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
@@ -188,8 +200,8 @@ struct DayDetailSheet: View {
                 }
             }
 
-            // 恢复默认（有 occurrence 时才有意义）
-            if occurrence != nil {
+            // 跳过后即使没有闹钟，也必须能撤销临时调整。
+            if hasOverrides || occurrence != nil {
                 actionButton(
                     title: "恢复默认规则",
                     subtitle: "清除所有临时调整",
@@ -331,16 +343,14 @@ struct DayDetailSheet: View {
     }
 
     private func performRestore() {
-        guard let occ = occurrence else { return }
         isActing = true
         Task {
-            try await container.deleteOverrideUseCase.execute(
-                scheduleID: occ.scheduleID,
-                targetDate: date
-            )
+            do {
+                try await container.deleteOverrideUseCase.execute(on: date)
+                onChanged()
+                dismiss()
+            } catch { errorMessage = error.localizedDescription }
             isActing = false
-            onChanged()
-            dismiss()
         }
     }
 

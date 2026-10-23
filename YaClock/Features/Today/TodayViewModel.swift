@@ -12,7 +12,7 @@ final class TodayViewModel {
 
     // MARK: - 状态属性
 
-    /// 下一次即将响铃的实例（nil 表示未来 60 天内没有计划）
+    /// 下一次即将响铃的实例，包含长假结束后的补排窗口
     var nextOccurrence: AlarmOccurrence?
 
     /// 下一次响铃距今的时间描述（如"明天 · 剩余 8 小时 15 分钟"）
@@ -26,6 +26,8 @@ final class TodayViewModel {
 
     /// 当前是否有 AlarmKit 权限
     var hasPermission: Bool = true
+    var errorMessage: String?
+    var isAdjusting = false
 
     private let container: AppContainer
     private let ruleEngine = RuleEngine()
@@ -53,36 +55,50 @@ final class TodayViewModel {
     /// 切换指定作息的启用状态
     func toggle(id: UUID) {
         Task {
-            try await container.toggleScheduleUseCase.execute(id: id)
+            do { try await container.toggleScheduleUseCase.execute(id: id) }
+            catch { errorMessage = error.localizedDescription }
             load()
         }
     }
 
-    // MARK: - 私有方法
-
-    private func load() {
-        hasPermission = UserDefaults.standard.object(forKey: "permission.alarmKit") as? Bool ?? true
-        do {
-            schedules = try container.scheduleRepo.fetchAll()
-            computeNextOccurrence()
-            computeTodayStatus()
-        } catch {
-            // 数据库读取错误属于工程 Bug，让其向上暴露
+    func adjust(_ occurrence: AlarmOccurrence, action: ScheduleOverride.Action) {
+        isAdjusting = true
+        Task {
+            do {
+                try await container.saveOverrideUseCase.execute(.init(
+                    scheduleID: occurrence.scheduleID, targetDate: occurrence.fireDate, action: action))
+            } catch { errorMessage = "临时调整未完全同步：\(error.localizedDescription)" }
+            load()
+            isAdjusting = false
         }
     }
 
-    private func computeNextOccurrence() {
+    func refresh() { load() }
+
+    // MARK: - 私有方法
+
+    private func load() {
+        hasPermission = container.scheduler.permission != .denied
+        do {
+            schedules = try container.scheduleRepo.fetchAll()
+            try computeNextOccurrence()
+            computeTodayStatus()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func computeNextOccurrence() throws {
         let now = Date()
-        guard let future = Calendar.current.date(byAdding: .day, value: 60, to: now) else { return }
 
         var earliest: AlarmOccurrence?
         for schedule in schedules where schedule.isEnabled {
-            let overrides = (try? container.overrideRepo.fetchAll(for: schedule.id)) ?? []
-            let occurrences = ruleEngine.generateOccurrences(
+            let overrides = try container.overrideRepo.fetchAll(for: schedule.id)
+            let occurrences = ruleEngine.upcomingOccurrences(
                 for: schedule,
                 overrides: overrides,
                 holidays: holidays,
-                in: now...future
+                from: now
             )
             for occ in occurrences {
                 if occ.fireDate > now {
@@ -138,7 +154,7 @@ final class TodayViewModel {
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.updateCountdownText()
+                self?.load()
             }
         }
     }

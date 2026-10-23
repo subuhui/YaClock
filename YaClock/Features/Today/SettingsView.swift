@@ -4,6 +4,8 @@
 
 import SwiftUI
 import AlarmKit
+import ActivityKit
+import UserNotifications
 
 struct SettingsView: View {
     @Environment(AppContainer.self) private var container
@@ -12,9 +14,10 @@ struct SettingsView: View {
     // MARK: - AppStorage & State
     @AppStorage("themeMode") private var themeMode = "system"
     @AppStorage("defaultHolidayPolicy") private var defaultHolidayPolicy = ChineseWorkdayPolicy.skipHoliday.rawValue
-    @AppStorage("permission.alarmKit") private var permissionAlarmKit = true
-    @AppStorage("permission.notifications") private var permissionNotifications = true
-    @AppStorage("permission.liveActivity") private var permissionLiveActivity = true
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var alarmPermission: AlarmPermission = .notDetermined
+    @State private var notificationStatus = "读取中"
+    @State private var liveActivitiesEnabled = false
 
     @State private var isSyncing = false
     @State private var syncMessage: String?
@@ -81,32 +84,27 @@ struct SettingsView: View {
                         }
                     }
 
-                    HStack {
-                        Label("节假日数据", systemImage: "cylinder.split.1x2")
-                        Spacer()
-                        Text("2026年数据已就绪")
-                            .foregroundStyle(.secondary)
-                    }
+                    NavigationLink("节假日数据") { HolidayDataView() }
                 } header: {
                     Text("功能设置")
                 }
 
                 // MARK: - 系统权限
                 Section {
-                    Toggle(isOn: $permissionAlarmKit) {
-                        Label("闹钟权限 (AlarmKit)", systemImage: "alarm")
+                    LabeledContent("闹钟权限", value: alarmPermission.rawValue)
+                    LabeledContent("通知权限", value: notificationStatus)
+                    LabeledContent("实时活动", value: liveActivitiesEnabled ? "已开启" : "已关闭")
+                    Button("申请闹钟权限并同步") {
+                        Task {
+                            do { try await container.refreshUseCase.requestPermission() }
+                            catch { showToast(error.localizedDescription) }
+                            await readPermissions()
+                        }
                     }
-                    .tint(accent.color)
-
-                    Toggle(isOn: $permissionNotifications) {
-                        Label("通知权限", systemImage: "bell")
+                    .disabled(container.refreshUseCase.isRefreshing)
+                    Button("打开系统设置") {
+                        UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!)
                     }
-                    .tint(accent.color)
-
-                    Toggle(isOn: $permissionLiveActivity) {
-                        Label("实时活动 (Live Activity)", systemImage: "play.rectangle")
-                    }
-                    .tint(accent.color)
                 } header: {
                     Text("系统权限")
                 }
@@ -220,6 +218,10 @@ struct SettingsView: View {
                 .zIndex(100)
             }
             }
+            .task { await readPermissions() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { Task { await readPermissions() } }
+            }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -259,7 +261,7 @@ struct SettingsView: View {
                     Button {
                         defaultHolidayPolicy = policy.rawValue
                         showingPolicySheet = false
-                        showToast("已切换为：\(policy.displayName)")
+                        manualSync()
                     } label: {
                         HStack {
                             Text(policy.displayName)
@@ -321,6 +323,18 @@ struct SettingsView: View {
             withAnimation(.easeOut(duration: 0.25)) {
                 toastMessage = nil
             }
+        }
+    }
+
+    private func readPermissions() async {
+        alarmPermission = container.scheduler.permission
+        liveActivitiesEnabled = ActivityAuthorizationInfo().areActivitiesEnabled
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: notificationStatus = "已授权"
+        case .denied: notificationStatus = "已拒绝"
+        case .notDetermined: notificationStatus = "尚未授权"
+        @unknown default: notificationStatus = "未知状态"
         }
     }
 

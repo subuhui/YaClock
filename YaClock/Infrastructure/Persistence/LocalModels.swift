@@ -46,6 +46,8 @@ final class LocalSchedule {
 
     /// 作息结束日期，nil 表示永久有效
     var endDate: Date?
+    var vacationStart: Date?
+    var vacationEnd: Date?
 
     init(
         id: UUID,
@@ -130,7 +132,7 @@ extension LocalSchedule {
     /// - Returns: 可持久化的 LocalSchedule 对象
     static func from(_ schedule: Schedule) throws -> LocalSchedule {
         let ruleData = try JSONEncoder().encode(schedule.rule)
-        return LocalSchedule(
+        let local = LocalSchedule(
             id: schedule.id,
             name: schedule.name,
             timeHour: schedule.time.hour,
@@ -144,6 +146,9 @@ extension LocalSchedule {
             startDate: schedule.startDate,
             endDate: schedule.endDate
         )
+        local.vacationStart = schedule.vacationStart
+        local.vacationEnd = schedule.vacationEnd
+        return local
     }
 
     /// 将 SwiftData 持久化对象还原为 Domain 层的 Schedule 值类型
@@ -159,7 +164,9 @@ extension LocalSchedule {
             snooze: SnoozeConfiguration(isEnabled: snoozeEnabled, durationMinutes: snoozeDurationMinutes),
             isEnabled: isEnabled,
             startDate: startDate,
-            endDate: endDate
+            endDate: endDate,
+            vacationStart: vacationStart,
+            vacationEnd: vacationEnd
         )
     }
 }

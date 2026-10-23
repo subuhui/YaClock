@@ -10,6 +10,22 @@ public struct RuleEngine {
     /// 初始化规则引擎
     public init() {}
     
+    /// 常规滚动窗口之外，额外预排跨窗口休假结束后的闹钟，避免长假结束当天依赖后台唤醒。
+    public func upcomingOccurrences(
+        for schedule: Schedule, overrides: [ScheduleOverride], holidays: HolidayProvider,
+        from now: Date, horizonDays: Int = 60, calendar: Calendar = .current
+    ) -> [AlarmOccurrence] {
+        let horizon = calendar.date(byAdding: .day, value: horizonDays, to: now)!
+        var occurrences = generateOccurrences(for: schedule, overrides: overrides, holidays: holidays, in: now...horizon, calendar: calendar)
+        if let start = schedule.vacationStart, let end = schedule.vacationEnd,
+           calendar.startOfDay(for: start) <= horizon, calendar.startOfDay(for: end) >= horizon {
+            let resume = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: end))!
+            let resumeEnd = calendar.date(byAdding: .day, value: horizonDays, to: resume)!
+            occurrences += generateOccurrences(for: schedule, overrides: overrides, holidays: holidays, in: resume...resumeEnd, calendar: calendar)
+        }
+        return occurrences.sorted { $0.fireDate < $1.fireDate }
+    }
+
     /// 根据指定的作息表、临时覆盖配置以及国家节假日数据，生成指定时间区间内的所有具体响铃实例
     /// - Parameters:
     ///   - schedule: 需要计算的长期作息表
@@ -23,7 +39,8 @@ public struct RuleEngine {
         overrides: [ScheduleOverride],
         holidays: HolidayProvider,
         in dateRange: ClosedRange<Date>,
-        calendar: Calendar = Calendar.current
+        calendar: Calendar = Calendar.current,
+        holidayPolicy: ChineseWorkdayPolicy? = nil
     ) -> [AlarmOccurrence] {
         // 如果作息未启用，直接不生成任何响铃实例
         guard schedule.isEnabled else { return [] }
@@ -149,7 +166,7 @@ public struct RuleEngine {
             
             if isRepeatingRule {
                 let globalPolicyRaw = UserDefaults.standard.string(forKey: "defaultHolidayPolicy") ?? ChineseWorkdayPolicy.skipHoliday.rawValue
-                let globalPolicy = ChineseWorkdayPolicy(rawValue: globalPolicyRaw) ?? .skipHoliday
+                let globalPolicy = holidayPolicy ?? ChineseWorkdayPolicy(rawValue: globalPolicyRaw) ?? .skipHoliday
                 
                 if let holidayType = holidays.checkHoliday(on: currentDate) {
                     switch holidayType {
@@ -182,6 +199,12 @@ public struct RuleEngine {
                 }
             }
             
+            if let start = schedule.vacationStart, let end = schedule.vacationEnd,
+               currentDate >= calendar.startOfDay(for: start),
+               currentDate <= calendar.startOfDay(for: end) {
+                isRinging = false
+            }
+
             // 5. 若响铃，生成实例并加入结果集
             if isRinging {
                 var fireComponents = calendar.dateComponents([.year, .month, .day], from: currentDate)

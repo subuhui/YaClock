@@ -11,6 +11,20 @@ import AlarmKit
 @available(iOS 26.0, *)
 final class AlarmKitScheduler: AlarmScheduler {
 
+    var permission: AlarmPermission {
+        switch AlarmManager.shared.authorizationState {
+        case .authorized: return .authorized
+        case .denied: return .denied
+        case .notDetermined: return .notDetermined
+        @unknown default: return .notDetermined
+        }
+    }
+
+    func requestPermission() async throws -> AlarmPermission {
+        _ = try await AlarmManager.shared.requestAuthorization()
+        return permission
+    }
+
     /// 初始化 AlarmKit 调度器
     init() {}
 
@@ -57,6 +71,10 @@ final class AlarmKitScheduler: AlarmScheduler {
     /// 取消已调度的系统闹钟
     func cancel(id: UUID) async throws {
         try AlarmManager.shared.cancel(id: id)
+    }
+
+    func activeIDs() async throws -> Set<UUID> {
+        Set(try AlarmManager.shared.alarms.filter { $0.state != .scheduled }.map(\.id))
     }
 
     /// 从 AlarmKit 系统队列中读取已调度的闹铃 ID 集合

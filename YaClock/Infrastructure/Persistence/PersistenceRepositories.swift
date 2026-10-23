@@ -52,6 +52,8 @@ final class ScheduleRepository {
             local.isEnabled = schedule.isEnabled
             local.startDate = schedule.startDate
             local.endDate = schedule.endDate
+            local.vacationStart = schedule.vacationStart
+            local.vacationEnd = schedule.vacationEnd
         } else {
             // 插入新记录
             let local = try LocalSchedule.from(schedule)
@@ -100,11 +102,13 @@ final class OverrideRepository {
 
     /// 保存（新建或更新）一个单日覆盖规则
     func save(_ override: ScheduleOverride) throws {
-        let id = override.id
+        let scheduleID = override.scheduleID
+        let targetDate = override.targetDate
         let descriptor = FetchDescriptor<LocalScheduleOverride>(
-            predicate: #Predicate { $0.id == id }
+            predicate: #Predicate { $0.scheduleID == scheduleID && $0.targetDate == targetDate }
         )
-        let existing = try context.fetch(descriptor).first
+        let matches = try context.fetch(descriptor)
+        let existing = matches.first
         let actionData = try JSONEncoder().encode(override.action)
 
         if let local = existing {
@@ -119,6 +123,8 @@ final class OverrideRepository {
             context.insert(local)
         }
 
+        // 合并旧版本按随机 ID 写入的同日重复记录。
+        for duplicate in matches.dropFirst() { context.delete(duplicate) }
         try context.save()
     }
 
@@ -131,6 +137,13 @@ final class OverrideRepository {
             context.delete(local)
             try context.save()
         }
+    }
+
+    func deleteAll(on date: Date) throws {
+        let target = Calendar.current.startOfDay(for: date)
+        let descriptor = FetchDescriptor<LocalScheduleOverride>(predicate: #Predicate { $0.targetDate == target })
+        for local in try context.fetch(descriptor) { context.delete(local) }
+        try context.save()
     }
 
     /// 删除指定作息表下指定日期的覆盖（恢复默认），用于"恢复默认"操作

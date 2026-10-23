@@ -7,6 +7,11 @@ import SwiftUI
 struct TodayView: View {
     @State private var viewModel: TodayViewModel
     @State private var showingSettings = false
+    @State private var showingVacation = false
+    @State private var pendingSkip: AlarmOccurrence?
+    @State private var lateOccurrence: AlarmOccurrence?
+    @State private var adjustedTime = Date()
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(AppContainer.self) private var container
 
     init(container: AppContainer) {
@@ -23,6 +28,12 @@ struct TodayView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         // Hero 卡片：下一次闹钟
                         nextAlarmCard
+                            .padding(.horizontal)
+
+                        AlarmHealthCard()
+                            .padding(.horizontal)
+
+                        quickActions
                             .padding(.horizontal)
 
                         // 今日日程状态
@@ -48,14 +59,70 @@ struct TodayView: View {
                         Image(systemName: "gearshape")
                             .foregroundStyle(.secondary)
                     }
+                    .accessibilityLabel("打开设置")
                 }
             }
-            .sheet(isPresented: $showingSettings) {
+            .alert("跳过下一次闹钟？", isPresented: Binding(get: { pendingSkip != nil }, set: { if !$0 { pendingSkip = nil } }), presenting: pendingSkip) { occurrence in
+                Button("取消", role: .cancel) { pendingSkip = nil }
+                Button("跳过这一次") {
+                    viewModel.adjust(occurrence, action: .skip)
+                    pendingSkip = nil
+                }
+            } message: { occurrence in
+                Text("\(occurrence.label) · \(occurrence.fireDate.formatted())。仅跳过这一天，后续作息不变。可在日历中恢复默认。")
+            }
+            .alert("操作失败", isPresented: Binding(get: { viewModel.errorMessage != nil }, set: { if !$0 { viewModel.errorMessage = nil } })) {
+                Button("好") { viewModel.errorMessage = nil }
+            } message: { Text(viewModel.errorMessage ?? "") }
+            .sheet(isPresented: $showingVacation, onDismiss: { viewModel.refresh() }) { VacationView() }
+            .sheet(item: $lateOccurrence) { occurrence in
+                NavigationStack {
+                    Form {
+                        Section {
+                            Text(occurrence.label)
+                            DatePicker("明天响铃时间", selection: $adjustedTime, in: occurrence.fireDate...Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: occurrence.fireDate)!, displayedComponents: .hourAndMinute)
+                        } footer: { Text("只调整明天这一次，后续仍按原作息响铃。") }
+                    }
+                    .navigationTitle("明天晚起")
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) { Button("取消") { lateOccurrence = nil } }
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("保存") {
+                                let c = Calendar.current.dateComponents([.hour, .minute], from: adjustedTime)
+                                viewModel.adjust(occurrence, action: .changeTime(.init(hour: c.hour!, minute: c.minute!)))
+                                lateOccurrence = nil
+                            }
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showingSettings, onDismiss: { viewModel.refresh() }) {
                 SettingsView()
             }
         }
         .onAppear { viewModel.onAppear() }
         .onDisappear { viewModel.onDisappear() }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { viewModel.refresh() } }
+        .onChange(of: container.refreshUseCase.lastSync) { _, _ in viewModel.refresh() }
+    }
+
+    private var quickActions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let next = viewModel.nextOccurrence {
+                Button("跳过下一次 · " + next.label, systemImage: "forward.end") { pendingSkip = next }
+                    .frame(minHeight: 44)
+            }
+            if let tomorrow = container.refreshUseCase.expected.first(where: { Calendar.current.isDateInTomorrow($0.fireDate) }) {
+                Button("明天晚起 · " + tomorrow.label, systemImage: "sunrise") {
+                    adjustedTime = min(Calendar.current.date(byAdding: .minute, value: 30, to: tomorrow.fireDate)!, Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: tomorrow.fireDate)!)
+                    lateOccurrence = tomorrow
+                }
+                .frame(minHeight: 44)
+            }
+            Button("休假模式", systemImage: "suitcase.rolling") { showingVacation = true }
+                .frame(minHeight: 44)
+        }
+        .disabled(viewModel.isAdjusting || container.refreshUseCase.isRefreshing)
     }
 
     // MARK: - 问候语

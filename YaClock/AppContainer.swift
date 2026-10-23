@@ -4,6 +4,8 @@
 
 import Foundation
 import SwiftData
+import BackgroundTasks
+import AlarmKit
 
 /// 应用依赖容器，在 App 入口构造，通过 Environment 注入到所有视图
 @Observable
@@ -73,4 +75,28 @@ final class AppContainer {
             refreshUseCase: refreshUseCase
         )
     }
+    func refreshInBackground() async {
+        do { try await refreshUseCase.execute() }
+        catch { /* 失败原因已保存在 refreshUseCase，首页提供重试入口。 */ }
+        scheduleBackgroundRefresh()
+    }
+
+    func scheduleBackgroundRefresh() {
+        let request = BGAppRefreshTaskRequest(identifier: "com.subuhui.YaClock.refresh")
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 12 * 3600)
+        do { try BGTaskScheduler.shared.submit(request) }
+        catch { backgroundRefreshError = error.localizedDescription }
+    }
+
+    private(set) var backgroundRefreshError: String?
+
+    func observeSystemAlarms() async {
+        #if !targetEnvironment(simulator)
+        for await _ in AlarmManager.shared.alarmUpdates {
+            if Task.isCancelled { return }
+            await refreshUseCase.verifyQueue()
+        }
+        #endif
+    }
+
 }

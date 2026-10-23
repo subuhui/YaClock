@@ -14,6 +14,7 @@ final class SchedulesViewModel {
 
     /// 全部作息表列表
     var schedules: [Schedule] = []
+    var errorMessage: String?
 
     /// 未来 60 天内最近的一次响铃实例（用于顶部 Banner）
     var nextOccurrence: AlarmOccurrence?
@@ -34,7 +35,8 @@ final class SchedulesViewModel {
     /// 删除指定作息表
     func delete(id: UUID) {
         Task {
-            try await container.deleteScheduleUseCase.execute(id: id)
+            do { try await container.deleteScheduleUseCase.execute(id: id) }
+            catch { errorMessage = error.localizedDescription }
             load()
         }
     }
@@ -48,16 +50,15 @@ final class SchedulesViewModel {
 
     private func computeNextOccurrence() {
         let now = Date()
-        guard let future = Calendar.current.date(byAdding: .day, value: 60, to: now) else { return }
 
         var earliest: AlarmOccurrence?
         for schedule in schedules where schedule.isEnabled {
             let overrides = (try? container.overrideRepo.fetchAll(for: schedule.id)) ?? []
-            let occurrences = ruleEngine.generateOccurrences(
+            let occurrences = ruleEngine.upcomingOccurrences(
                 for: schedule,
                 overrides: overrides,
                 holidays: holidays,
-                in: now...future
+                from: now
             )
             for occ in occurrences where occ.fireDate > now {
                 if earliest == nil || occ.fireDate < earliest!.fireDate {
@@ -71,10 +72,9 @@ final class SchedulesViewModel {
     /// 计算指定作息表的倒计时描述（如"将在 8 小时 12 分钟后响起"）
     func countdownDescription(for schedule: Schedule) -> String? {
         let now = Date()
-        guard let future = Calendar.current.date(byAdding: .day, value: 60, to: now) else { return nil }
         let overrides = (try? container.overrideRepo.fetchAll(for: schedule.id)) ?? []
-        let occurrences = ruleEngine.generateOccurrences(
-            for: schedule, overrides: overrides, holidays: holidays, in: now...future
+        let occurrences = ruleEngine.upcomingOccurrences(
+            for: schedule, overrides: overrides, holidays: holidays, from: now
         )
         guard let next = occurrences.first(where: { $0.fireDate > now }) else { return nil }
         let diff = next.fireDate.timeIntervalSince(now)

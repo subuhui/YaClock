@@ -12,6 +12,9 @@ struct ScheduleEditorView: View {
 
     /// 非 nil 表示编辑模式，nil 为新建
     let originalSchedule: Schedule?
+    let isNew: Bool
+    @State private var errorMessage: String?
+    @State private var scheduleID: UUID
 
     @State private var name: String
     @State private var selectedHour: Int
@@ -29,8 +32,10 @@ struct ScheduleEditorView: View {
     @State private var isSaving = false
     @State private var showingCycleEditor = false
 
-    init(schedule: Schedule?) {
+    init(schedule: Schedule?, isNew: Bool = false) {
+        self.isNew = isNew || schedule == nil
         self.originalSchedule = schedule
+        self._scheduleID = State(wrappedValue: schedule?.id ?? UUID())
 
         var name = ""
         var selectedHour = 7
@@ -196,13 +201,15 @@ struct ScheduleEditorView: View {
                 }
 
                 // MARK: 删除（仅编辑模式）
-                if originalSchedule != nil {
+                if originalSchedule != nil && !isNew {
                     Section {
                         Button(role: .destructive) {
                             if let id = originalSchedule?.id {
                                 Task {
-                                    try await container.deleteScheduleUseCase.execute(id: id)
-                                    dismiss()
+                                    do {
+                                        try await container.deleteScheduleUseCase.execute(id: id)
+                                        dismiss()
+                                    } catch { errorMessage = error.localizedDescription }
                                 }
                             }
                         } label: {
@@ -215,7 +222,10 @@ struct ScheduleEditorView: View {
                     }
                 }
             }
-            .navigationTitle(originalSchedule == nil ? "新建作息" : "编辑作息")
+            .alert("无法完成操作", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+                Button("好") { errorMessage = nil }
+            } message: { Text(errorMessage ?? "") }
+            .navigationTitle(isNew ? "新建作息" : "编辑作息")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -272,24 +282,33 @@ struct ScheduleEditorView: View {
 
     // MARK: - 保存
 
-    private func save() {
+    func makeSchedule() -> Schedule {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let rule = buildRule()
-        let schedule = Schedule(
-            id: originalSchedule?.id ?? UUID(),
+        return Schedule(
+            id: scheduleID,
             name: trimmedName.isEmpty ? "未命名作息" : trimmedName,
             time: LocalTime(hour: selectedHour, minute: selectedMinute),
             rule: rule,
             sound: originalSchedule?.sound ?? AlarmSound(name: "default", type: .system),
             snooze: SnoozeConfiguration(isEnabled: snoozeEnabled, durationMinutes: snoozeDuration),
             isEnabled: originalSchedule?.isEnabled ?? true,
-            startDate: originalSchedule?.startDate ?? Date()
+            startDate: originalSchedule?.startDate ?? Date(),
+            endDate: originalSchedule?.endDate,
+            vacationStart: isNew ? nil : originalSchedule?.vacationStart,
+            vacationEnd: isNew ? nil : originalSchedule?.vacationEnd
         )
+    }
+
+    private func save() {
+        let schedule = makeSchedule()
         isSaving = true
         Task {
-            try await container.saveScheduleUseCase.execute(schedule)
+            do {
+                try await container.saveScheduleUseCase.execute(schedule)
+                dismiss()
+            } catch { errorMessage = "作息已保存在本机，但同步失败：\(error.localizedDescription)。请重试。" }
             isSaving = false
-            dismiss()
         }
     }
 

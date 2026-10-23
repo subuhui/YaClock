@@ -114,6 +114,11 @@ final class DeleteOverrideUseCase {
         self.refreshUseCase = refreshUseCase
     }
 
+    func execute(on date: Date) async throws {
+        try overrideRepo.deleteAll(on: date)
+        try await refreshUseCase.execute()
+    }
+
     /// 删除指定覆盖并触发对账
     func execute(scheduleID: UUID, targetDate: Date) async throws {
         try overrideRepo.delete(scheduleID: scheduleID, targetDate: targetDate)

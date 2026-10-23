@@ -4,6 +4,7 @@
 
 import SwiftUI
 import SwiftData
+import BackgroundTasks
 
 @main
 struct YaClockApp: App {
@@ -20,7 +21,8 @@ struct YaClockApp: App {
             LocalScheduleOverride.self,
             LocalScheduledOccurrence.self
         ])
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // 保持旧版本私有数据库位置；App Group 只共享 Widget 快照。
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, groupContainer: .none)
         do {
             let mc = try ModelContainer(for: schema, configurations: [config])
             self.modelContainer = mc
@@ -52,6 +54,9 @@ struct YaClockApp: App {
                 .environment(appContainer)
                 .modelContainer(modelContainer)
         }
+        .backgroundTask(.appRefresh("com.subuhui.YaClock.refresh")) {
+            await appContainer.refreshInBackground()
+        }
     }
 }
 
@@ -59,6 +64,7 @@ struct YaClockApp: App {
 
 struct MainTabView: View {
     @Environment(AppContainer.self) private var container
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView {
@@ -73,6 +79,12 @@ struct MainTabView: View {
             Tab("Schedule", systemImage: "list.bullet.rectangle") {
                 SchedulesView(container: container)
             }
+        }
+        .task { await container.refreshInBackground() }
+        .task { await container.observeSystemAlarms() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await container.refreshInBackground() } }
+            if phase == .background { container.scheduleBackgroundRefresh() }
         }
     }
 }
